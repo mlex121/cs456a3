@@ -6,14 +6,20 @@
 
 namespace a3 {
 
+extern const char *CHANNEL_INFO_FILENAME;
+
 class Sender {
-private:
+public:
+    explicit Sender(uint32_t timeout, const std::string &filename);
+    int execute();
 protected:
     uint32_t m_timeout;
     std::string m_filename;
-public:
-    explicit Sender(uint32_t timeout, const std::string &filename);
-    virtual int execute() = 0;
+private:
+    int read_addrinfo();
+
+    char *m_dest_hostname;
+    char *m_dest_port;
 };
 
 } // namespace a3

@@ -5,12 +5,11 @@
 
 namespace a3 {
 
-class GBNSender : Sender {
-private:
-protected:
+class GBNSender : public Sender {
 public:
     using Sender::Sender;
-    virtual int execute() override final;
+protected:
+private:
 };
 
 } // namespace a3

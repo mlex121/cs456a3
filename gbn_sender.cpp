@@ -1,17 +1,8 @@
 #include <gbn_sender.h>
 
-#include <iostream>
-
 #include <shared.h>
 
 namespace a3 {
-
-int GBNSender::execute()
-{
-    std::cout << m_timeout << '\n';
-    std::cout << m_filename << '\n';
-    return ProgramErrorNone;
-}
 
 } // namespace a3
 

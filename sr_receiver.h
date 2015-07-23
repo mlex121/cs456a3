@@ -5,8 +5,11 @@
 
 namespace a3 {
 
-class SRReceiver : Receiver {
-
+class SRReceiver : public Receiver {
+public:
+    using Receiver::Receiver;
+protected:
+private:
 };
 
 } // namespace a3

@@ -5,8 +5,11 @@
 
 namespace a3 {
 
-class GBNReceiver : Receiver {
-
+class GBNReceiver : public Receiver {
+public:
+    using Receiver::Receiver;
+protected:
+private:
 };
 
 } // namespace a3

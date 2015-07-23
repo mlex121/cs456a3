@@ -5,8 +5,11 @@
 
 namespace a3 {
 
-class SRSender : Sender {
-
+class SRSender : public Sender {
+public:
+    using Sender::Sender;
+protected:
+private:
 };
 
 } // namespace a3
