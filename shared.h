@@ -7,6 +7,11 @@
 
 namespace a3 {
 
+enum ProgramErrors : int {
+    ProgramErrorNone = 0,
+    ProgramErrorInvalidArguments,
+};
+
 static const size_t MAX_PAYLOAD_SIZE = 500;
 
 enum PacketType : uint32_t {
