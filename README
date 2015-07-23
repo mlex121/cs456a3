@@ -1,0 +1,1 @@
+To compile: clang++ -g -std=c++11 -Wall -Wextra -Werror -I . shared.cpp main.cpp
