@@ -2,3 +2,13 @@
 obj/
 *.out
 *.dSYM
+
+# Created by receiver process and channel emulator
+recvInfo
+channelInfo
+
+# Binaries
+gbnReceiver
+gbnSender
+srReceiver
+srSender
