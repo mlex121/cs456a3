@@ -11,6 +11,9 @@ INCLUDEDIR := .
 
 MKDIR_P = mkdir -p
 
+SHARED_SRC := shared.cpp
+SHARED_DEP := shared.h
+
 RECEIVER_SRC := receiver.cpp
 RECEIVER_DEP := receiver.h
 
@@ -33,6 +36,7 @@ SR_SENDER := srSender
 SR_SENDER_SRC := sr_sender.cpp
 SR_SENDER_DEP := sr_sender.h
 
+SHARED_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SHARED_SRC))
 RECEIVER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(RECEIVER_SRC))
 SENDER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SENDER_SRC))
 GBN_RECEIVER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(GBN_RECEIVER_SRC))
@@ -51,16 +55,16 @@ directories: $(OBJDIR)
 $(OBJDIR):
 	$(MKDIR_P) $(OBJDIR)
 
-$(GBN_RECEIVER): $(GBN_RECEIVER_OBJ) $(RECEIVER_OBJ)
+$(GBN_RECEIVER): $(GBN_RECEIVER_OBJ) $(RECEIVER_OBJ) $(SHARED_OBJ)
 	$(CXX) -o $@ $^
 
-$(GBN_SENDER): $(GBN_SENDER_OBJ) $(SENDER_OBJ)
+$(GBN_SENDER): $(GBN_SENDER_OBJ) $(SENDER_OBJ) $(SHARED_OBJ)
 	$(CXX) -o $@ $^
 
-$(SR_RECEIVER): $(SR_RECEIVER_OBJ) $(RECEIVER_OBJ)
+$(SR_RECEIVER): $(SR_RECEIVER_OBJ) $(RECEIVER_OBJ) $(SHARED_OBJ)
 	$(CXX) -o $@ $^
 
-$(SR_SENDER): $(SR_SENDER_OBJ) $(SENDER_OBJ)
+$(SR_SENDER): $(SR_SENDER_OBJ) $(SENDER_OBJ) $(SHARED_OBJ)
 	$(CXX) -o $@ $^
 
 clean:
