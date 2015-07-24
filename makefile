@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 CXX := g++
-CXXFLAGS := -std=c++11 -Wall -Wextra -Werror
+CXXFLAGS := -std=c++0x -Wall -Wextra -Werror
 
 debug: CXXFLAGS += -DDEBUG -g -O0
 
