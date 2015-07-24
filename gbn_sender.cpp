@@ -1,5 +1,7 @@
 #include <gbn_sender.h>
 
+#include <iostream>
+
 #include <shared.h>
 
 namespace a3 {
@@ -12,6 +14,7 @@ GBNSender::GBNSender(uint32_t timeout, const std::string &filename) :
 int main(int argc, char **argv)
 {
     if (argc != 3) {
+        std::cerr << "usage: " << argv[0] << " <timeout> <filename>\n";
         return EXIT_FAILURE;
     }
 

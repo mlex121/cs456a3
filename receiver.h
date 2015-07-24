@@ -17,6 +17,8 @@ public:
     Receiver &operator=(const Receiver &s) = delete;
     Receiver &&operator=(const Receiver &&s) = delete;
     virtual ~Receiver();
+
+    int receive_file();
 protected:
     int write_to_dest_file(const unsigned char *buffer, size_t length) const;
     int write_to_dest_file(Packet packet) const;

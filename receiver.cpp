@@ -22,9 +22,6 @@ const size_t MAX_PORT_LEN = std::max(
     std::to_string(std::numeric_limits<in_port_t>::min()).size()
 );
 
-// The maximum number of pending connections for listen(2). Usually should be 1.
-const int MAX_CONNECTIONS = 1;
-
 Receiver::Receiver(const std::string &filename) :
     m_filename(filename),
     m_sock_fd(-1),
@@ -34,25 +31,19 @@ Receiver::Receiver(const std::string &filename) :
 {
     // Create the socket and bind to it
     if (setup_socket() != 0) {
-        std::cerr << "Error setting up the socket" << '\n';
+        std::cerr << "Error setting up the socket\n";
         ::exit(EXIT_FAILURE);
     }
 
     // Fill in our hostname and port
     if (setup_addrinfo() != 0) {
-        std::cerr << "Error filling in hostname and port" << '\n';
+        std::cerr << "Error filling in hostname and port\n";
         ::exit(EXIT_FAILURE);
     }
 
     // Create transfer destination file
     if (setup_dest_file() != 0) {
-        std::cerr << "Error setting up destination file for transfer" << '\n';
-        ::exit(EXIT_FAILURE);
-    }
-
-    // Start listening for connections
-    if (listen(m_sock_fd, MAX_CONNECTIONS) == -1) {
-        std::perror("listen");
+        std::cerr << "Error setting up destination file for transfer\n";
         ::exit(EXIT_FAILURE);
     }
 
@@ -86,10 +77,24 @@ Receiver::~Receiver()
     }
 }
 
+int Receiver::receive_file()
+{
+    Packet packet = create_invalid_packet();
+
+    // FIXME: Get this working
+    while (true) {
+        if (receive_packet(m_sock_fd, packet, nullptr, nullptr) != 0) {
+            break;
+        }
+    }
+
+    return 0;
+}
+
 int Receiver::setup_socket()
 {
     // Create a socket
-    m_sock_fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    m_sock_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
 
     if (m_sock_fd == -1) {
         std::perror("socket");
@@ -129,7 +134,7 @@ int Receiver::setup_addrinfo()
     m_port = new char[MAX_PORT_LEN];
 
     if (m_port == nullptr) {
-        std::cerr << "Could not allocate port buffer" << '\n';
+        std::cerr << "Could not allocate port buffer\n";
         return -2;
     }
 
@@ -139,7 +144,7 @@ int Receiver::setup_addrinfo()
     m_hostname = new char[_POSIX_HOST_NAME_MAX];
 
     if (m_hostname == nullptr) {
-        std::cerr << "Could not allocate hostname buffer" << '\n';
+        std::cerr << "Could not allocate hostname buffer\n";
         delete[] m_port;
         m_port = nullptr;
         return -3;
@@ -192,6 +197,7 @@ int Receiver::write_to_dest_file(const unsigned char *buffer, size_t length) con
 {
     // Need a valid fd to write to
     if (m_dest_file_fd == -1) {
+        std::cerr << "Can't write to file without open fd\n";
         return -1;
     }
 
@@ -204,7 +210,7 @@ int Receiver::write_to_dest_file(const unsigned char *buffer, size_t length) con
     }
 
     if ((size_t)written < length) {
-        std::cerr << "Did not write the entire buffer, assuming disk is full" << '\n';
+        std::cerr << "Did not write the entire buffer, assuming disk is full\n";
         return -3;
     }
 

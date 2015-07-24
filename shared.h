@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <limits>
 #include <string>
+#include <sys/socket.h>
 
 namespace a3 {
 
@@ -91,7 +92,7 @@ bool equal_packets(const Packet &p1, const Packet &p2);
  * @return        A newly allocated byte array containing the serialized packet,
  *                or nullptr if it could not be created.
  */
-unsigned char *serialize_packet(Packet packet);
+unsigned char *serialize_packet(const Packet &packet);
 
 /**
  * Creates a Packet struct from the given serialized packet (byte array). Must
@@ -103,6 +104,10 @@ unsigned char *serialize_packet(Packet packet);
  * @return            The created Packet struct
  */
 Packet deserialize_packet(const unsigned char *serialized);
+
+int send_packet(int sock_fd, const Packet &packet, const struct sockaddr *to, socklen_t to_len);
+
+int receive_packet(int sock_fd, Packet &packet, struct sockaddr *from, socklen_t *from_len);
 
 uint32_t get_length_from_packet_header(const unsigned char header[PACKET_HEADER_SIZE]);
 
