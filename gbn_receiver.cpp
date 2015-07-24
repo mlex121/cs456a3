@@ -9,11 +9,11 @@ namespace a3 {
 int main(int argc, char **argv)
 {
     if (argc != 2) {
-        return a3::ProgramErrorInvalidArguments;
+        return EXIT_FAILURE;
     }
 
     std::string filename = std::string(argv[1]);
     a3::GBNReceiver receiver(filename);
 
-    return receiver.execute();
+    return 0;
 }

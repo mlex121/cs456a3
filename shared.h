@@ -3,21 +3,18 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <string>
 
 namespace a3 {
 
-enum ProgramErrors : int {
-    ProgramErrorNone = 0,
-    ProgramErrorInvalidArguments,
-};
-
 static const size_t MAX_PAYLOAD_SIZE = 500;
 
 enum PacketType : uint32_t {
-    DAT = 0, // Data
-    ACK = 1, // Acknowledge
-    EOT = 2, // End-of-transmission
+    DAT = 0,    // Data
+    ACK = 1,    // Acknowledge
+    EOT = 2,    // End-of-transmission
+    INVALID_PACKET = std::numeric_limits<uint32_t>::max(),
 };
 
 enum TransferDirection : uint32_t {
@@ -35,6 +32,7 @@ typedef struct {
 
 static const size_t PACKET_HEADER_SIZE = sizeof(PacketType) + (2 * sizeof(uint32_t));
 static const size_t MAX_PACKET_SIZE = PACKET_HEADER_SIZE + MAX_PAYLOAD_SIZE;
+static const uint32_t MAX_SEQ_NUM = 255;
 
 /**
  * Creates a Packet struct with the given type, sequence number, and payload,
@@ -67,6 +65,14 @@ Packet create_ack(uint32_t seq_num);
 Packet create_eot();
 
 /**
+ * Convenience method to create a packet that is invalid (in case an error value
+ * is needed).
+ *
+ * @return A Packet struct of INVALID_PACKET type that cannot be serialized.
+ */
+Packet create_invalid_packet();
+
+/**
  * Compares the packets and returns whether or not they're the same.
  *
  * @param  p1 The first packet to compare
@@ -89,13 +95,16 @@ unsigned char *serialize_packet(Packet packet);
 
 /**
  * Creates a Packet struct from the given serialized packet (byte array). Must
- * be a valid packet, since we use bytes 4-8 to get the length.
+ * be a valid packet, since we use bytes 4-8 to get the length. Note that this
+ * method DOES NOT deallocate the provided buffer.
  *
  * @param  serialized The serialized packet, must not be nullptr
  *
  * @return            The created Packet struct
  */
 Packet deserialize_packet(const unsigned char *serialized);
+
+uint32_t get_length_from_packet_header(const unsigned char header[PACKET_HEADER_SIZE]);
 
 /**
  * Creates a log string from a packet in the following format:

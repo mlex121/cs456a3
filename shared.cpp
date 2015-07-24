@@ -8,6 +8,11 @@
 
 namespace a3 {
 
+static const size_t PACKET_TYPE_OFFSET = 0;
+static const size_t PACKET_SEQ_NUM_OFFSET = PACKET_TYPE_OFFSET + sizeof(PacketType);
+static const size_t PACKET_LENGTH_OFFSET = PACKET_SEQ_NUM_OFFSET + sizeof(uint32_t);
+static const size_t PACKET_PAYLOAD_OFFSET = PACKET_HEADER_SIZE;
+
 Packet create_packet(PacketType type, uint32_t seq_num, const unsigned char *payload, size_t payload_size)
 {
     Packet packet = {};
@@ -38,6 +43,11 @@ Packet create_ack(uint32_t seq_num)
 Packet create_eot()
 {
     return create_packet(EOT, 0, nullptr, 0);
+}
+
+Packet create_invalid_packet()
+{
+    return create_packet(INVALID_PACKET, MAX_SEQ_NUM + 1, nullptr, 0);
 }
 
 bool equal_packets(const Packet &p1, const Packet &p2)
@@ -107,7 +117,9 @@ unsigned char *serialize_packet(Packet packet)
 
 Packet deserialize_packet(const unsigned char *serialized)
 {
-    assert(serialized != nullptr);
+    if (serialized == nullptr) {
+        return create_invalid_packet();
+    }
 
     Packet packet = {};
 
@@ -120,28 +132,43 @@ Packet deserialize_packet(const unsigned char *serialized)
     offset += sizeof(packet.type);
 
     // Sequence number
+    assert(offset == PACKET_SEQ_NUM_OFFSET);
     std::memcpy(&host_endian_long, serialized + offset, sizeof(packet.seq_num));
     packet.seq_num = ntohl(host_endian_long);
     offset += sizeof(packet.seq_num);
 
     // Length
+    assert(offset == PACKET_LENGTH_OFFSET);
     std::memcpy(&host_endian_long, serialized + offset, sizeof(packet.length));
     packet.length = ntohl(host_endian_long);
     offset += sizeof(packet.length);
 
     // Make sure we didn't mess up
     assert(packet.length >= PACKET_HEADER_SIZE);
-    assert(packet.length <= MAX_PAYLOAD_SIZE);
+    assert(packet.length <= MAX_PACKET_SIZE);
 
     packet.payload_size = packet.length - PACKET_HEADER_SIZE;
 
     // Payload
+    assert(offset == PACKET_PAYLOAD_OFFSET);
     std::memcpy(packet.payload, serialized + offset, packet.payload_size);
     offset += packet.payload_size;
 
     assert(offset == packet.length);
-
     return packet;
+}
+
+uint32_t get_length_from_packet_header(const unsigned char header[PACKET_HEADER_SIZE])
+{
+    uint32_t length = 0;
+    std::memcpy(&length, &header[0] + PACKET_LENGTH_OFFSET, sizeof(uint32_t));
+
+    // Still need to convert endianness
+    length = ntohl(length);
+
+    assert(length >= PACKET_HEADER_SIZE);
+    assert(length <= MAX_PACKET_SIZE);
+    return length;
 }
 
 std::string packet_to_log_string(Packet packet, TransferDirection direction)
@@ -166,6 +193,9 @@ std::string packet_to_log_string(Packet packet, TransferDirection direction)
             break;
         case EOT:
             s.append("EOT ");
+            break;
+        case INVALID_PACKET:
+            s.append("**INVALID** ");
             break;
     }
 
