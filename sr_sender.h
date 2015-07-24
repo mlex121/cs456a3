@@ -7,7 +7,7 @@ namespace a3 {
 
 class SRSender : public Sender {
 public:
-    using Sender::Sender;
+    SRSender(uint32_t timeout, const std::string &filename);
 protected:
 private:
 };

@@ -7,7 +7,7 @@ namespace a3 {
 
 class GBNSender : public Sender {
 public:
-    using Sender::Sender;
+    GBNSender(uint32_t timeout, const std::string &filename);
 protected:
 private:
 };

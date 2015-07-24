@@ -2,6 +2,9 @@
 
 namespace a3 {
 
+SRSender::SRSender(uint32_t timeout, const std::string &filename) :
+    Sender(timeout, filename) {}
+
 } // namespace a3
 
 int main(int argc, char **argv)

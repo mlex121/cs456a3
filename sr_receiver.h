@@ -7,7 +7,7 @@ namespace a3 {
 
 class SRReceiver : public Receiver {
 public:
-    using Receiver::Receiver;
+    explicit SRReceiver(const std::string &filename);
 protected:
 private:
 };

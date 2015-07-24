@@ -2,6 +2,9 @@
 
 namespace a3 {
 
+SRReceiver::SRReceiver(const std::string &filename) :
+    Receiver(filename) {}
+
 } // namespace a3
 
 int main(int argc, char **argv)

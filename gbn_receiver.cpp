@@ -4,6 +4,9 @@
 
 namespace a3 {
 
+GBNReceiver::GBNReceiver(const std::string &filename) :
+    Receiver(filename) {}
+
 } // namespace a3
 
 int main(int argc, char **argv)

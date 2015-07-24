@@ -7,7 +7,7 @@ namespace a3 {
 
 class GBNReceiver : public Receiver {
 public:
-    using Receiver::Receiver;
+    explicit GBNReceiver(const std::string &filename);
 protected:
 private:
 };
