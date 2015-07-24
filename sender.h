@@ -16,25 +16,27 @@ public:
     explicit Sender(uint32_t timeout, const std::string &filename);
     virtual ~Sender();
 
-    int upload_file();
+    virtual void upload_file() = 0;
 protected:
+    int end_of_transfer();
+
+    uint32_t m_timeout;
+    int m_sock_fd;
+    int m_src_file_fd;
+    struct addrinfo *m_addrinfo;
 private:
     Sender(Sender &s) = delete;
     Sender(Sender &&s) = delete;
     Sender &operator=(const Sender &s) = delete;
     Sender &&operator=(const Sender &&s) = delete;
 
-    int setup_socket();
     int setup_src_file();
+    int setup_socket();
     int read_addrinfo();
 
-    uint32_t m_timeout;
     std::string m_filename;
-    int m_sock_fd;
-    int m_src_file_fd;
     char *m_dest_hostname;
     char *m_dest_port;
-    struct addrinfo *m_addrinfo;
 };
 
 } // namespace a3

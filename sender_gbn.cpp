@@ -1,94 +1,170 @@
-#include <sender.h>
+#include <sender_gbn.h>
 
+#include <deque>
 #include <iostream>
+#include <signal.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <shared.h>
 
 namespace a3 {
 
-int Sender::upload_file()
+// Ugly hack I need to do to access methods through the signal handler
+GBNSender *sender = nullptr;
+
+static void handler(int sig)
 {
-    if (m_src_file_fd == -1) {
-        std::cerr << "Can't send file without open fd\n";
-        return -1;
+    (void)sig;
+
+    // We timed out trying to receive an ACK reply, so send the frames again
+    if (sender != nullptr) {
+        sender->send_frame_window();
+        sender->wait_for_ack();
+    }
+}
+
+GBNSender::GBNSender(uint32_t timeout, const std::string &filename) :
+    Sender(timeout, filename),
+    m_offset(0),
+    m_seq_num(0),
+    m_send_base(0),
+    m_done_reading(false),
+    m_frame_window()
+{}
+
+void GBNSender::reload_frame_window(size_t num_packets)
+{
+    if (m_done_reading) {
+        return;
     }
 
-    off_t offset = 0;
-    ssize_t bytes_read = 0;
-    unsigned char payload[MAX_PAYLOAD_SIZE];
-    uint32_t seq_num = 0;
-    Packet reply = create_invalid_packet();
-    int ret = -1;
-
-    while (true) {
-        // Read MAX_PAYLOAD_SIZE chunks of the source file until we get to the end
-        bytes_read = ::pread(m_src_file_fd, &payload[0], MAX_PAYLOAD_SIZE, offset);
-
-        if (bytes_read == -1) {
-            std::perror("pread");
-            return -2;
-        } else if (bytes_read == 0) {
-            // EOF
+    // Dequeue packets to make room for new ones
+    for (size_t i = 0; i < num_packets; ++i) {
+        if (m_frame_window.empty()) {
             break;
         }
 
-        ret = send_packet(
-            m_sock_fd,
-            create_packet(DAT, seq_num, &payload[0], bytes_read),
-            m_addrinfo->ai_addr,
-            m_addrinfo->ai_addrlen
-        );
+        m_frame_window.pop_front();
+    }
 
-        if (ret != 0) {
+    ssize_t bytes_read = 0;
+    unsigned char payload[MAX_PAYLOAD_SIZE];
+
+    for (size_t i = 0; i < num_packets; ++i) {
+        bytes_read = ::pread(m_src_file_fd, &payload[0], MAX_PAYLOAD_SIZE, m_offset);
+
+        if (bytes_read == -1) {
+            std::perror("pread");
+            ::exit(EXIT_FAILURE);
+        }
+
+        if (bytes_read == 0) {
+            m_done_reading = true;
+            return;
+        }
+
+        m_frame_window.push_back(create_packet(DAT, m_seq_num, &payload[0], bytes_read));
+        m_seq_num = (m_seq_num + 1) % MAX_SEQ_NUM;
+        m_offset += bytes_read;
+    }
+}
+
+void GBNSender::send_frame_window()
+{
+    for (size_t i = 0; i < m_frame_window.size(); ++i) {
+        if (send_packet(m_sock_fd, m_frame_window[i], m_addrinfo->ai_addr, m_addrinfo->ai_addrlen) != 0) {
             std::cerr << "Error sending packet\n";
-            return ret;
+            ::exit(EXIT_FAILURE);
         }
+    }
+}
 
-        reply = create_invalid_packet();
-        ret = receive_packet(m_sock_fd, reply, nullptr, nullptr);
+void GBNSender::upload_file()
+{
+    std::cout << "upload_file() -> reload_frame_window(WINDOW_SIZE)\n";
 
-        if (ret != 0) {
-            std::cerr << "Error receiving reply packet\n";
-            return ret;
+    struct sigaction sa = {};
+
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_NODEFER;
+    sa.sa_handler = handler;
+
+    if (::sigaction(SIGALRM, &sa, nullptr) == -1) {
+        std::perror("sigaction");
+        ::exit(EXIT_FAILURE);
+    }
+
+    reload_frame_window(WINDOW_SIZE);
+    send_frame_window();
+    wait_for_ack();
+}
+
+void GBNSender::wait_for_ack()
+{
+    int ret = -1;
+
+    // Cancel the previous ualarm before calling a new one
+    ::ualarm(0, 0);
+    ::ualarm(m_timeout * 1000, 0);
+
+    Packet packet = create_invalid_packet();
+    ret = receive_packet(m_sock_fd, packet, nullptr, nullptr);
+
+    // ret == 1 means receive_packet got interrupted by our signal handler
+    if (ret != 0 && ret != 1) {
+        std::cerr << "Error receiving reply ACK\n";
+        ::exit(EXIT_FAILURE);
+    }
+
+    // Cancel the alarm since we got a packet reply
+    ::ualarm(0, 0);
+
+    if (packet.type == ACK) {
+        // FIXME: Oh god
+        if (packet.seq_num >= m_send_base ||
+            (MAX_SEQ_NUM - (m_send_base - packet.seq_num) < WINDOW_SIZE)) {
+            uint32_t dist = packet.seq_num >= m_send_base
+                ? packet.seq_num - m_send_base + 1
+                : MAX_SEQ_NUM - (m_send_base - packet.seq_num) + 1;
+            m_send_base += dist;
+
+            std::cout << "Progress: " << m_send_base << " / " << (m_offset / MAX_PAYLOAD_SIZE) + 1 << " packets\n";
+
+            if (m_done_reading && m_send_base == (m_offset / MAX_PAYLOAD_SIZE) + 1) {
+                ret = end_of_transfer();
+
+                if (ret != 0) {
+                    std::cerr << "Failed to end transfer\n";
+                }
+
+                exit(0);
+            } else {
+                std::cout << "wait_for_ack() -> reload_frame_window(" << dist << ")\n";
+                reload_frame_window(dist);
+                send_frame_window();
+            }
         }
-
-        if (reply.type != ACK) {
-            std::cerr << "Did not receive ACK\n";
-            return -3;
-        }
-
-        seq_num = (seq_num + 1) % MAX_SEQ_NUM;
-        offset += bytes_read;
     }
 
-    ret = send_packet(
-        m_sock_fd,
-        create_eot(),
-        m_addrinfo->ai_addr,
-        m_addrinfo->ai_addrlen
-    );
-
-    if (ret != 0) {
-        std::cerr << "Error sending EOT after file transmission\n";
-        return ret;
-    }
-
-    reply = create_invalid_packet();
-    ret = receive_packet(m_sock_fd, reply, nullptr, nullptr);
-
-    if (ret != 0) {
-        std::cerr << "Error receiving reply after sending EOT\n";
-        return ret;
-    }
-
-    if (reply.type != EOT) {
-        std::cerr << "Did not receive EOT in reply\n";
-        return -4;
-    }
-
-    return 0;
+    // Transfer isn't done yet
+    wait_for_ack();
 }
 
 } // namespace a3
 
+int main(int argc, char **argv)
+{
+    if (argc != 3) {
+        std::cerr << "usage: " << argv[0] << " <timeout> <filename>\n";
+        return EXIT_FAILURE;
+    }
+
+    uint32_t timeout = std::strtoul(argv[1], nullptr, 10);
+    std::string filename(argv[2]);
+    a3::sender = new a3::GBNSender(timeout, filename);
+    a3::sender->upload_file();
+    delete a3::sender;
+
+    return 0;
+}

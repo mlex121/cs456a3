@@ -18,12 +18,12 @@ const char *CHANNEL_INFO_FILENAME = "channelInfo";
 
 Sender::Sender(uint32_t timeout, const std::string &filename) :
     m_timeout(timeout),
-    m_filename(filename),
     m_sock_fd(-1),
     m_src_file_fd(-1),
+    m_addrinfo(nullptr),
+    m_filename(filename),
     m_dest_hostname(nullptr),
-    m_dest_port(nullptr),
-    m_addrinfo(nullptr)
+    m_dest_port(nullptr)
 {
     if (setup_src_file() != 0) {
         std::cerr << "Error opening source file for transfer\n";
@@ -149,19 +149,41 @@ int Sender::setup_src_file()
     return 0;
 }
 
-} // namespace a3
-
-int main(int argc, char **argv)
+int Sender::end_of_transfer()
 {
-    if (argc != 3) {
-        std::cerr << "usage: " << argv[0] << " <timeout> <filename>\n";
-        return EXIT_FAILURE;
+    // Send an EOT packet
+    int ret = send_packet(
+        m_sock_fd,
+        create_eot(),
+        m_addrinfo->ai_addr,
+        m_addrinfo->ai_addrlen
+    );
+
+    if (ret != 0) {
+        std::cerr << "Error sending EOT after file transmission\n";
+        return ret;
     }
 
-    uint32_t timeout = std::strtoul(argv[1], nullptr, 10);
-    std::string filename(argv[2]);
-    a3::Sender sender(timeout, filename);
-    sender.upload_file();
+    // Receive an EOT packet in response
+    Packet reply = create_invalid_packet();
+    ret = receive_packet(
+        m_sock_fd,
+        reply,
+        nullptr,
+        nullptr
+    );
+
+    if (ret != 0) {
+        std::cerr << "Error receiving reply after sending EOT\n";
+        return ret;
+    }
+
+    if (reply.type != EOT) {
+        std::cerr << "Did not receive EOT in reply\n";
+        return -1;
+    }
 
     return 0;
 }
+
+} // namespace a3

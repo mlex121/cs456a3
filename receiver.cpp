@@ -230,7 +230,10 @@ int main(int argc, char **argv)
 
     std::string filename = std::string(argv[1]);
     a3::Receiver receiver(filename);
-    receiver.download_file();
 
+    if (receiver.download_file() != 0) {
+        return EXIT_FAILURE;
+    }
+    
     return 0;
 }

@@ -211,6 +211,12 @@ int receive_packet(int sock_fd, Packet &packet, struct sockaddr *from, socklen_t
 
     if (size == -1) {
         std::perror("recvfrom");
+
+        // Not explicitly a failure case
+        if (errno == EINTR) {
+            return 1;
+        }
+
         return -1;
     }
 
