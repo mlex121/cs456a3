@@ -21,20 +21,16 @@ SENDER_SRC := sender.cpp
 SENDER_DEP := sender.h
 
 GBN_RECEIVER := gbnReceiver
-GBN_RECEIVER_SRC := gbn_receiver.cpp
-GBN_RECEIVER_DEP := gbn_receiver.h
+GBN_RECEIVER_SRC := receiver_gbn.cpp
 
 GBN_SENDER := gbnSender
-GBN_SENDER_SRC := gbn_sender.cpp
-GBN_SENDER_DEP := gbn_sender.h
+GBN_SENDER_SRC := sender_gbn.cpp
 
 SR_RECEIVER := srReceiver
-SR_RECEIVER_SRC := sr_receiver.cpp
-SR_RECEIVER_DEP := sr_receiver.h
+SR_RECEIVER_SRC := receiver_sr.cpp
 
 SR_SENDER := srSender
-SR_SENDER_SRC := sr_sender.cpp
-SR_SENDER_DEP := sr_sender.h
+SR_SENDER_SRC := sender_sr.cpp
 
 SHARED_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SHARED_SRC))
 RECEIVER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(RECEIVER_SRC))

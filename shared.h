@@ -9,6 +9,7 @@
 
 namespace a3 {
 
+static const size_t WINDOW_SIZE = 10;
 static const size_t MAX_PAYLOAD_SIZE = 500;
 
 enum PacketType : uint32_t {

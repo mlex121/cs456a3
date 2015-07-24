@@ -1,11 +1,10 @@
 #include <shared.h>
 
 #include <algorithm>
+#include <arpa/inet.h>
 #include <cassert>
 #include <cstring>
 #include <iostream>
-
-#include <arpa/inet.h>
 
 namespace a3 {
 

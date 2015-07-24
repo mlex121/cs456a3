@@ -77,34 +77,6 @@ Receiver::~Receiver()
     }
 }
 
-int Receiver::receive_file()
-{
-    Packet packet = create_invalid_packet();
-    struct sockaddr_storage servaddr = {};
-    socklen_t servaddr_len = sizeof(servaddr);
-
-    while (true) {
-        if (receive_packet(m_sock_fd, packet, (struct sockaddr *)&servaddr, &servaddr_len) == 0) {
-            switch (packet.type) {
-                case DAT:
-                    write_to_dest_file(packet.payload, packet.payload_size);
-                    send_packet(m_sock_fd, create_ack(packet.seq_num), (struct sockaddr *)&servaddr, servaddr_len);
-                    break;
-                case ACK:
-                    break;
-                case EOT:
-                    send_packet(m_sock_fd, create_eot(), (struct sockaddr *)&servaddr, servaddr_len);
-                    ::exit(0);
-                    break;
-                case INVALID_PACKET:
-                    break;
-            }
-        }
-    }
-
-    return 0;
-}
-
 int Receiver::setup_socket()
 {
     // Create a socket
@@ -248,3 +220,17 @@ int Receiver::write_to_dest_file(Packet packet) const
 }
 
 } // namespace a3
+
+int main(int argc, char **argv)
+{
+    if (argc != 2) {
+        std::cerr << "usage: " << argv[0] << " <filename>\n";
+        return EXIT_FAILURE;
+    }
+
+    std::string filename = std::string(argv[1]);
+    a3::Receiver receiver(filename);
+    receiver.download_file();
+
+    return 0;
+}
