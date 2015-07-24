@@ -40,6 +40,8 @@ GBN_SENDER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(GBN_SENDER_SRC))
 SR_RECEIVER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SR_RECEIVER_SRC))
 SR_SENDER_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SR_SENDER_SRC))
 
+TEMP_FILES := .DS_Store dest recvInfo channelInfo
+
 .PHONY: all directories clean
 
 all: directories $(GBN_RECEIVER) $(GBN_SENDER) $(SR_RECEIVER) $(SR_SENDER)
@@ -64,7 +66,7 @@ $(SR_SENDER): $(SR_SENDER_OBJ) $(SENDER_OBJ) $(SHARED_OBJ)
 	$(CXX) -o $@ $^
 
 clean:
-	rm -rf $(OBJDIR) $(GBN_RECEIVER) $(GBN_SENDER) $(SR_RECEIVER) $(SR_SENDER)
+	rm -rf $(OBJDIR) $(GBN_RECEIVER) $(GBN_SENDER) $(SR_RECEIVER) $(SR_SENDER) $(TEMP_FILES)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -I $(INCLUDEDIR) -c $< -o $@
