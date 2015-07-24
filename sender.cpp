@@ -17,9 +17,9 @@ const char *CHANNEL_INFO_FILENAME = "channelInfo";
 Sender::Sender(uint32_t timeout, const std::string &filename) :
     m_timeout(timeout),
     m_filename(filename),
+    m_sock_fd(-1),
     m_dest_hostname(nullptr),
-    m_dest_port(nullptr),
-    m_sock_fd(-1)
+    m_dest_port(nullptr)
 {
     if (read_addrinfo() != 0) {
         std::cerr << "Error reading address info from " << CHANNEL_INFO_FILENAME << '\n';
@@ -141,7 +141,7 @@ int Sender::send_packet(Packet packet)
         int sent = ::send(m_sock_fd, &serialized[0] + offset, size - offset, 0);
 
         if (sent == -1) {
-            ::perror("send");
+            std::perror("send");
             delete[] serialized;
             return -1;
         }

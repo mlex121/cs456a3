@@ -1,10 +1,13 @@
 #include <receiver.h>
 
 #include <climits>
+#include <cstdio>
+#include <fcntl.h>
 #include <fstream>
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 namespace a3 {
@@ -23,9 +26,10 @@ const int MAX_CONNECTIONS = 1;
 
 Receiver::Receiver(const std::string &filename) :
     m_filename(filename),
+    m_sock_fd(-1),
+    m_dest_file_fd(-1),
     m_hostname(nullptr),
-    m_port(nullptr),
-    m_sock_fd(-1)
+    m_port(nullptr)
 {
     // Create the socket and bind to it
     if (setup_socket() != 0) {
@@ -39,9 +43,15 @@ Receiver::Receiver(const std::string &filename) :
         ::exit(EXIT_FAILURE);
     }
 
+    // Create transfer destination file
+    if (setup_dest_file() != 0) {
+        std::cerr << "Error setting up destination file for transfer" << '\n';
+        ::exit(EXIT_FAILURE);
+    }
+
     // Start listening for connections
     if (listen(m_sock_fd, MAX_CONNECTIONS) == -1) {
-        ::perror("listen");
+        std::perror("listen");
         ::exit(EXIT_FAILURE);
     }
 
@@ -54,6 +64,16 @@ Receiver::Receiver(const std::string &filename) :
 
 Receiver::~Receiver()
 {
+    if (m_sock_fd != -1) {
+        ::close(m_sock_fd);
+        m_sock_fd = -1;
+    }
+
+    if (m_dest_file_fd != -1) {
+        ::close(m_dest_file_fd);
+        m_dest_file_fd = -1;
+    }
+
     if (m_hostname != nullptr) {
         delete[] m_hostname;
         m_hostname = nullptr;
@@ -71,7 +91,7 @@ int Receiver::setup_socket()
     m_sock_fd = ::socket(AF_INET, SOCK_STREAM, 0);
 
     if (m_sock_fd == -1) {
-        ::perror("socket");
+        std::perror("socket");
         return -1;
     }
 
@@ -87,7 +107,7 @@ int Receiver::setup_socket()
 
     // Bind to the socket we created
     if (::bind(m_sock_fd, (struct sockaddr *)&recvaddr, sizeof(recvaddr)) == -1) {
-        ::perror("bind");
+        std::perror("bind");
         return -2;
     }
 
@@ -101,7 +121,7 @@ int Receiver::setup_addrinfo()
 
     // Fill in recvinfo
     if (::getsockname(m_sock_fd, (struct sockaddr *)&recvinfo, &recvinfo_len) == -1) {
-        ::perror("getsockname");
+        std::perror("getsockname");
         return -1;
     }
 
@@ -126,7 +146,7 @@ int Receiver::setup_addrinfo()
 
     // Copy the current hostname
     if (::gethostname(m_hostname, _POSIX_HOST_NAME_MAX) == -1) {
-        ::perror("gethostname");
+        std::perror("gethostname");
         delete[] m_port;
         m_port = nullptr;
         return -4;
@@ -135,7 +155,22 @@ int Receiver::setup_addrinfo()
     return 0;
 }
 
-int Receiver::write_addrinfo()
+int Receiver::setup_dest_file()
+{
+    mode_t mask = ::umask(S_IWGRP | S_IWOTH /* == 0022 */);
+
+    m_dest_file_fd = ::open(m_filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
+    ::umask(mask);
+
+    if (m_dest_file_fd == -1) {
+        std::perror("open");
+        return -1;
+    }
+
+    return 0;
+}
+
+int Receiver::write_addrinfo() const
 {
     // Can't write empty hostname/port
     if (m_hostname == nullptr || m_port == nullptr) {
@@ -150,6 +185,45 @@ int Receiver::write_addrinfo()
     }
 
     return 0;
+}
+
+int Receiver::write_to_dest_file(const unsigned char *buffer, size_t length) const
+{
+    // Need a valid fd to write to
+    if (m_dest_file_fd == -1) {
+        return -1;
+    }
+
+    // Write the packet's data to the file
+    ssize_t written = ::write(m_dest_file_fd, &buffer[0], length);
+
+    if (written == -1) {
+        std::perror("write");
+        return -2;
+    }
+
+    if ((size_t)written < length) {
+        std::cerr << "Did not write the entire buffer, assuming disk is full" << '\n';
+        return -3;
+    }
+
+    // Synchronize changes to disk
+    if (::fsync(m_dest_file_fd) == -1) {
+        std::perror("fsync");
+        return -4;
+    }
+
+    return 0;
+}
+
+int Receiver::write_to_dest_file(Packet packet) const
+{
+    // Can only write valid data packets
+    if (packet.type != DAT || packet.payload_size == 0) {
+        return -1;
+    }
+
+    return write_to_dest_file(&packet.payload[0], packet.payload_size);
 }
 
 } // namespace a3
