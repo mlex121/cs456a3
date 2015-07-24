@@ -80,11 +80,25 @@ Receiver::~Receiver()
 int Receiver::receive_file()
 {
     Packet packet = create_invalid_packet();
+    struct sockaddr_storage servaddr = {};
+    socklen_t servaddr_len = sizeof(servaddr);
 
-    // FIXME: Get this working
     while (true) {
-        if (receive_packet(m_sock_fd, packet, nullptr, nullptr) != 0) {
-            break;
+        if (receive_packet(m_sock_fd, packet, (struct sockaddr *)&servaddr, &servaddr_len) == 0) {
+            switch (packet.type) {
+                case DAT:
+                    write_to_dest_file(packet.payload, packet.payload_size);
+                    send_packet(m_sock_fd, create_ack(packet.seq_num), (struct sockaddr *)&servaddr, servaddr_len);
+                    break;
+                case ACK:
+                    break;
+                case EOT:
+                    send_packet(m_sock_fd, create_eot(), (struct sockaddr *)&servaddr, servaddr_len);
+                    ::exit(0);
+                    break;
+                case INVALID_PACKET:
+                    break;
+            }
         }
     }
 

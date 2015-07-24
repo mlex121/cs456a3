@@ -164,33 +164,32 @@ int send_packet(int sock_fd, const Packet &packet, const struct sockaddr *to, so
     unsigned char *serialized = serialize_packet(packet);
 
     if (serialized == nullptr) {
-        std::cerr << "Couldn't allocate buffer for packet serialization\n";
+        std::cerr << "Couldn't serialize packet\n";
         return -1;
     }
 
-    size_t size = packet.length;
-    size_t offset = 0;
+    // No need to loop, UDP datagrams are sent atomically
+    ssize_t sent = ::sendto(
+        sock_fd,
+        &serialized[0],
+        packet.length,
+        0,
+        to,
+        to_len
+    );
 
-    while (offset < size) {
-        int sent = ::sendto(
-            sock_fd,
-            &serialized[0] + offset,
-            size - offset,
-            0,
-            to,
-            to_len
-        );
-
-        if (sent == -1) {
-            std::perror("sendto");
-            delete[] serialized;
-            return -2;
-        }
-
-        offset += sent;
+    if (sent == -1) {
+        std::perror("sendto");
+        delete[] serialized;
+        return -2;
     }
 
-    assert(offset == size);
+    if (sent != packet.length) {
+        std::cerr << "Didn't send whole packet\n";
+        delete[] serialized;
+        return -3;
+    }
+
     std::cout << packet_to_log_string(packet, SEND) << '\n';
     delete[] serialized;
     return 0;
@@ -198,97 +197,32 @@ int send_packet(int sock_fd, const Packet &packet, const struct sockaddr *to, so
 
 int receive_packet(int sock_fd, Packet &packet, struct sockaddr *from, socklen_t *from_len)
 {
-    int size = 0;
-    size_t offset = 0;
-    unsigned char header[PACKET_HEADER_SIZE];
+    ssize_t size = 0;
+    unsigned char serialized[MAX_PACKET_SIZE];
 
-    // Loop until we retrieve the full header
-    do {
-        size = ::recvfrom(
-            sock_fd,
-            &header[0] + offset,
-            PACKET_HEADER_SIZE - offset,
-            0,
-            from,
-            from_len
-        );
-        offset += size;
-    } while (offset < PACKET_HEADER_SIZE && size > 0);
+    // No need to loop, UDP datagrams are read atomically
+    size = ::recvfrom(
+        sock_fd,
+        &serialized[0],
+        MAX_PACKET_SIZE,
+        0,
+        from,
+        from_len
+    );
 
     if (size == -1) {
         std::perror("recvfrom");
         return -1;
     }
 
-    if (offset != PACKET_HEADER_SIZE) {
-        std::cerr << "Got packet header of the wrong size: " << offset << " (should be " << PACKET_HEADER_SIZE << ")\n";
+    if ((size_t)size < PACKET_HEADER_SIZE) {
+        std::cerr << "Got packet that was smaller than a packet header\n";
         return -2;
-    }
-
-    uint32_t packet_length = get_length_from_packet_header(header);
-
-    if (packet_length < PACKET_HEADER_SIZE) {
-        std::cerr << "Received packet has incorrect length: " << packet_length << " (can't be less than " << PACKET_HEADER_SIZE << ")\n";
-        return -3;
-    }
-
-    if (packet_length > MAX_PACKET_SIZE) {
-        std::cerr << "Received packet has incorrect length: " << packet_length << " (can't be greater than " << MAX_PACKET_SIZE << ")\n";
-        return -4;
-    }
-
-    unsigned char *serialized = new unsigned char[packet_length];
-
-    if (serialized == nullptr) {
-        std::cerr << "Couldn't allocate buffer for serialized packet\n";
-        return -5;
-    }
-
-    // Copy the header over to our new buffer
-    std::memcpy(&serialized[0], &header[0], PACKET_HEADER_SIZE);
-
-    // Loop until we get the whole packet
-    do {
-        size = ::recvfrom(
-            sock_fd,
-            &serialized[0] + offset,
-            packet_length - offset,
-            0,
-            from,
-            from_len
-        );
-        offset += size;
-    } while (offset < packet_length && size > 0);
-
-    if (size == -1) {
-        std::perror("recvfrom");
-        delete[] serialized;
-        return -6;
-    }
-
-    if (offset != packet_length) {
-        std::cerr << "Didn't get entire packet (received " << offset << " bytes, expected " << packet_length << " bytes)\n";
-        delete[] serialized;
-        return -7;
     }
 
     packet = deserialize_packet(&serialized[0]);
     std::cout << packet_to_log_string(packet, RECV) << '\n';
-    delete[] serialized;
     return 0;
-}
-
-uint32_t get_length_from_packet_header(const unsigned char header[PACKET_HEADER_SIZE])
-{
-    uint32_t length = 0;
-    std::memcpy(&length, &header[0] + PACKET_LENGTH_OFFSET, sizeof(uint32_t));
-
-    // Still need to convert endianness
-    length = ntohl(length);
-
-    assert(length >= PACKET_HEADER_SIZE);
-    assert(length <= MAX_PACKET_SIZE);
-    return length;
 }
 
 std::string packet_to_log_string(Packet packet, TransferDirection direction)

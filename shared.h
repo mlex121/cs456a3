@@ -109,8 +109,6 @@ int send_packet(int sock_fd, const Packet &packet, const struct sockaddr *to, so
 
 int receive_packet(int sock_fd, Packet &packet, struct sockaddr *from, socklen_t *from_len);
 
-uint32_t get_length_from_packet_header(const unsigned char header[PACKET_HEADER_SIZE]);
-
 /**
  * Creates a log string from a packet in the following format:
  * PKT {SEND|RECV} {DAT|ACK|EOT} <sequence number> <total length>
