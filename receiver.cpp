@@ -209,7 +209,7 @@ int Receiver::write_to_dest_file(const unsigned char *buffer, size_t length) con
     return 0;
 }
 
-int Receiver::write_to_dest_file(Packet packet) const
+int Receiver::write_to_dest_file(const Packet &packet) const
 {
     // Can only write valid data packets
     if (packet.type != DAT || packet.payload_size == 0) {
