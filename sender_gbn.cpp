@@ -97,7 +97,10 @@ void GBNSender::upload_file()
     std::cout << "upload_file() -> reload_frame_window(WINDOW_SIZE)\n";
     reload_frame_window(WINDOW_SIZE);
     send_frame_window();
-    wait_for_ack();
+
+    while (true) {
+        wait_for_ack();
+    }
 }
 
 void GBNSender::wait_for_ack()
@@ -111,14 +114,18 @@ void GBNSender::wait_for_ack()
     Packet packet = create_invalid_packet();
     ret = receive_packet(m_sock_fd, packet, nullptr, nullptr);
 
+    // Cancel the alarm receive_packet returned
+    ::ualarm(0, 0);
+
     // ret == 1 means receive_packet got interrupted by our signal handler
-    if (ret != 0 && ret != 1) {
+    if (ret == 1) {
+        return;
+    }
+
+    if (ret != 0) {
         std::cerr << "Error receiving reply ACK\n";
         ::exit(EXIT_FAILURE);
     }
-
-    // Cancel the alarm since we got a packet reply
-    ::ualarm(0, 0);
 
     if (packet.type == ACK) {
         int32_t dist = distance(m_send_base, packet.seq_num);
@@ -137,7 +144,7 @@ void GBNSender::wait_for_ack()
                     std::cerr << "Failed to end transfer\n";
                 }
 
-                exit(0);
+                ::exit(0);
             } else {
                 std::cout << "wait_for_ack() -> reload_frame_window(" << dist << ")\n";
                 reload_frame_window(packets_acked);
@@ -145,9 +152,6 @@ void GBNSender::wait_for_ack()
             }
         }
     }
-
-    // Transfer isn't done yet
-    wait_for_ack();
 }
 
 } // namespace a3
