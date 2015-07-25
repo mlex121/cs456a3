@@ -31,7 +31,10 @@ static void handler(int sig)
     // We timed out trying to receive an ACK reply, so send the frames again
     if (sender != nullptr) {
         sender->send_frame_window();
-        sender->wait_for_ack();
+
+        while (true) {
+            sender->wait_for_ack();
+        }
     }
 }
 
