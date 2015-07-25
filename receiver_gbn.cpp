@@ -31,7 +31,6 @@ int Receiver::download_file()
 
                 // The packet fits in our window, we can buffer it
                 if (0 <= dist && dist < (int32_t)window.size()) {
-                    std::cout << "BUFFERING PACKET IN SLOT " << dist << '\n';
                     window[dist] = packet;
                 }
 

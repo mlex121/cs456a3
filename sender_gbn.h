@@ -20,6 +20,7 @@ private:
     off_t m_offset;
     uint32_t m_seq_num;
     uint32_t m_send_base;
+    uint32_t m_packets_sent;
     bool m_done_reading;
     std::deque<Packet> m_frame_window;
 
