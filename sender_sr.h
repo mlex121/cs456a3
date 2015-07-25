@@ -9,7 +9,7 @@ class SRSender : public Sender {
 public:
     explicit SRSender(uint32_t timeout, const std::string &filename);
 
-    virtual void upload_file() override final;
+    virtual void upload_file();
 protected:
 private:
 

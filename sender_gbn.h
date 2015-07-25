@@ -12,7 +12,7 @@ class GBNSender : public Sender {
 public:
     explicit GBNSender(uint32_t timeout, const std::string &filename);
 
-    virtual void upload_file() override final;
+    virtual void upload_file();
     void send_frame_window();
     void wait_for_ack();
 protected:
