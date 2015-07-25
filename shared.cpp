@@ -47,7 +47,7 @@ Packet create_eot()
 
 Packet create_invalid_packet()
 {
-    return create_packet(INVALID_PACKET, MAX_SEQ_NUM + 1, nullptr, 0);
+    return create_packet(INVALID_PACKET, SEQ_NUM_BASE + 1, nullptr, 0);
 }
 
 bool equal_packets(const Packet &p1, const Packet &p2)
@@ -73,6 +73,26 @@ bool equal_packets(const Packet &p1, const Packet &p2)
     }
 
     return true;
+}
+
+int32_t distance(uint32_t seq_num1, uint32_t seq_num2)
+{
+    if (seq_num1 == seq_num2) {
+        return 0;
+    }
+
+    if (seq_num1 > seq_num2) {
+        int32_t v1 = (int32_t)SEQ_NUM_BASE - ((int32_t)seq_num1 - (int32_t)seq_num2);
+        int32_t v2 = (int32_t)seq_num2 - (int32_t)seq_num1;
+
+        return std::abs(v1) < (int32_t)WINDOW_SIZE ? v1 : v2;
+    }
+
+    // seq_num1 < seq_num2
+    int32_t v1 = (int32_t)seq_num2 - (int32_t)seq_num1;
+    int32_t v2 = (int32_t)seq_num2 - (int32_t)SEQ_NUM_BASE - (int32_t)seq_num1;
+
+    return std::abs(v1) < (int32_t)WINDOW_SIZE ? v1 : v2;
 }
 
 unsigned char *serialize_packet(const Packet &packet)

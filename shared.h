@@ -34,7 +34,7 @@ typedef struct {
 
 static const size_t PACKET_HEADER_SIZE = sizeof(PacketType) + (2 * sizeof(uint32_t));
 static const size_t MAX_PACKET_SIZE = PACKET_HEADER_SIZE + MAX_PAYLOAD_SIZE;
-static const uint32_t MAX_SEQ_NUM = 255;
+static const uint32_t SEQ_NUM_BASE = 256;
 
 /**
  * Creates a Packet struct with the given type, sequence number, and payload,
@@ -83,6 +83,8 @@ Packet create_invalid_packet();
  * @return    True if the packets are equal, false if they are not equal
  */
 bool equal_packets(const Packet &p1, const Packet &p2);
+
+int32_t distance(uint32_t seq_num1, uint32_t seq_num2);
 
 /**
  * Allocates a byte array and serializes the packet into the array. Integers are

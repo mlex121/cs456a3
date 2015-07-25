@@ -65,7 +65,7 @@ void GBNSender::reload_frame_window(size_t num_packets)
         }
 
         m_frame_window.push_back(create_packet(DAT, m_seq_num, &payload[0], bytes_read));
-        m_seq_num = (m_seq_num + 1) % MAX_SEQ_NUM;
+        m_seq_num = (m_seq_num + 1) % SEQ_NUM_BASE;
         m_offset += bytes_read;
     }
 }
@@ -82,10 +82,9 @@ void GBNSender::send_frame_window()
 
 void GBNSender::upload_file()
 {
-    std::cout << "upload_file() -> reload_frame_window(WINDOW_SIZE)\n";
-
     struct sigaction sa = {};
 
+    // Register handler(int) as the SIGALRM handler
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_NODEFER;
     sa.sa_handler = handler;
@@ -95,6 +94,7 @@ void GBNSender::upload_file()
         ::exit(EXIT_FAILURE);
     }
 
+    std::cout << "upload_file() -> reload_frame_window(WINDOW_SIZE)\n";
     reload_frame_window(WINDOW_SIZE);
     send_frame_window();
     wait_for_ack();
@@ -121,17 +121,16 @@ void GBNSender::wait_for_ack()
     ::ualarm(0, 0);
 
     if (packet.type == ACK) {
-        // FIXME: Oh god
-        if (packet.seq_num >= m_send_base ||
-            (MAX_SEQ_NUM - (m_send_base - packet.seq_num) < WINDOW_SIZE)) {
-            uint32_t dist = packet.seq_num >= m_send_base
-                ? packet.seq_num - m_send_base + 1
-                : MAX_SEQ_NUM - (m_send_base - packet.seq_num) + 1;
-            m_send_base += dist;
+        int32_t dist = distance(m_send_base, packet.seq_num);
+
+        if (dist >= 0) {
+            // If the distance is 0, our first packet was acked, and so on
+            uint32_t packets_acked = dist + 1;
+            m_send_base = (m_send_base + packets_acked) % SEQ_NUM_BASE;
 
             std::cout << "Progress: " << m_send_base << " / " << (m_offset / MAX_PAYLOAD_SIZE) + 1 << " packets\n";
 
-            if (m_done_reading && m_send_base == (m_offset / MAX_PAYLOAD_SIZE) + 1) {
+            if (m_done_reading && m_send_base >= (m_offset / MAX_PAYLOAD_SIZE) + 1) {
                 ret = end_of_transfer();
 
                 if (ret != 0) {
@@ -141,7 +140,7 @@ void GBNSender::wait_for_ack()
                 exit(0);
             } else {
                 std::cout << "wait_for_ack() -> reload_frame_window(" << dist << ")\n";
-                reload_frame_window(dist);
+                reload_frame_window(packets_acked);
                 send_frame_window();
             }
         }
