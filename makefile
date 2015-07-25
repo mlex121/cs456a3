@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 CXX := g++
-CXXFLAGS := -std=c++0x -stdlib=libc++ -Wall -Wextra -Werror -Wno-missing-field-initializers
+CXXFLAGS := -std=c++0x -Wall -Wextra -Werror -Wno-missing-field-initializers
 
 debug: CXXFLAGS += -DDEBUG -g -O0
 
