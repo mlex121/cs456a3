@@ -1,1 +1,12 @@
-To compile: clang++ -g -std=c++11 -Wall -Wextra -Werror -I . shared.cpp main.cpp
+CS 456 Assignment 3
+
+Machines built on:
+    linux.student.cs.uwaterloo.ca environment (GCC 4.6.4)
+    Mac OS X 10.10.3 (clang 3.0-6)
+
+Completed:
+    Base networking code (creating sockets, sending/receiving packets)
+    Go-Back-N implementation
+
+Not completed:
+    Selective Repeat implementation
