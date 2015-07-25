@@ -164,26 +164,28 @@ int Sender::end_of_transfer()
         return ret;
     }
 
-    // Receive an EOT packet in response
-    Packet reply = create_invalid_packet();
-    ret = receive_packet(
-        m_sock_fd,
-        reply,
-        nullptr,
-        nullptr
-    );
+    // Loop until we receive an EOT packet in response
+    while (true) {
+        Packet reply = create_invalid_packet();
+        ret = receive_packet(
+            m_sock_fd,
+            reply,
+            nullptr,
+            nullptr
+        );
 
-    if (ret != 0) {
-        std::cerr << "Error receiving reply after sending EOT\n";
-        return ret;
+        if (ret != 0) {
+            std::cerr << "Error receiving reply after sending EOT\n";
+            return ret;
+        }
+
+        if (reply.type == EOT) {
+            return 0;
+        }
     }
 
-    if (reply.type != EOT) {
-        std::cerr << "Did not receive EOT in reply\n";
-        return -1;
-    }
-
-    return 0;
+    // Should not get here
+    return -1;
 }
 
 } // namespace a3
