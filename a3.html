@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+<p>CS 456/656 Spring 2015 - Assignment 3</p>
+<h1>CS 456/656 Spring 2015 - Assignment 3</h1>
+<p>(Version: Jul 7 09:06:40)</p>
+<h3>Due Date: Friday, July 24, 2015, 17:00</h3>
+<p>In this assignment, you are provided with an unreliable channel emulator. You must implement both the <i>Go-Back-N</i> and <i>Selective Repeat</i> versions of pipelined reliable data transfer, as well as a simple file transfer application. The reliable transfer protocol must be able to handle network errors such as packet loss, duplication, and reordering. For simplicity, the protocol only needs to be unidirectional, i.e., data flows in one direction (from sender to receiver) and acknowledgements (ACKs) in the opposite direction. To implement each version, you need to write two programs: a sender and a receiver with the specifications given below. Communication to and from the channel emulator uses UDP. You can implement your solution in any programming language. The overall setup is shown in the diagram below with 'S', 'B', 'C', and 'R' denoting the various UDP sockets. See <a href="#Addressing">Addressing</a> below for further information.</p>
+<p><img src="https://www.student.cs.uwaterloo.ca/~cs456/S15/a3-overview.png" alt="A3 Overview" width="700" /></p>
+<p>When the sender needs to send packets to the receiver, it sends them to the channel emulator at 'B'. The channel emulator forwards the packets to the receiver at 'R'. However, it may randomly delay or discard packets. The receiver sends ACKs back to the channel at 'C', which may also randomly discard or delay ACKs before forwarding them to 'S'.</p>
+<h3>Details</h3>
+<h4>Packet Format</h4>
+<p>All packets exchanged between the sender and the receiver must adhere to the following format:</p>
+<table style="margin-left: auto; margin-right: auto; text-align: left;" border="0" cellpadding="2" cellspacing="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;">
+<table style="width: 100%; text-align: left;" border="1" cellpadding="2" cellspacing="2">
+<tbody>
+<tr align="center">
+<td style="vertical-align: top;">Packet Type</td>
+</tr>
+<tr align="center">
+<td style="vertical-align: top;">Sequence Number</td>
+</tr>
+<tr align="center">
+<td style="vertical-align: top;">Packet Length</td>
+</tr>
+<tr>
+<td style="vertical-align: top;"><br /><br />
+<div style="text-align: center;">Payload</div>
+<br /><br /><br /></td>
+</tr>
+</tbody>
+</table>
+</td>
+<td style="vertical-align: top;">
+<table style="width: 100%; text-align: left;" border="0" cellpadding="3" cellspacing="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;">32 bit unsigned integer, big endian</td>
+</tr>
+<tr>
+<td style="vertical-align: top;">32 bit unsigned integer, big endian</td>
+</tr>
+<tr>
+<td style="vertical-align: top;">32 bit unsigned integer, big endian</td>
+</tr>
+<tr>
+<td style="vertical-align: top;"><br /><br />byte sequence, maximum 500 bytes<br /><br /><br /></td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The <i>Packet Type</i> field indicates the type of the packet. It is set as follows:</p>
+<table style="margin-left: auto; margin-right: auto; text-align: left;" border="1" cellpadding="2" cellspacing="2">
+<tbody>
+<tr><th>Type</th><th>Explanation</th></tr>
+<tr>
+<td>0</td>
+<td>Data Packet</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Acknowledgement (ACK) Packet</td>
+</tr>
+<tr>
+<td>2</td>
+<td>End-Of-Transfer (EOT) Packet (see below for details)</td>
+</tr>
+</tbody>
+</table>
+<p>For data packets, the <i>Sequence Number</i> is the modulo 256 sequence number of the packet, i.e., the sequence number range is [0,255]. For ACK packets, <i> Sequence Number</i> is <span style="text-decoration: underline;">the sequence number of the packet being acknowledged</span>.</p>
+<p>The <i>Packet Length</i> field specifies the <span style="text-decoration: underline;">total length of the packet</span> in bytes, including the packet header. For ACK and EOT packets, the size of the packet is just the size of the header.</p>
+<h4>Sender Program</h4>
+<p>You must implement two versions (using Go-Back-N and Selective Repeat) of a sender program that takes two arguments: the value of a timeout in milliseconds and a filename. The sender then transfers the file reliably to the receiver program. The timeout is used as the timeout period for the reliable data transfer protocol. During the transfer, the sender program must create packets as big as possible, i.e., containing 500 bytes payload, if enough data is available. After all contents of the file have been <span style="text-decoration: underline;">transmitted successfully</span> to the receiver and the corresponding <span style="text-decoration: underline;">ACKs have been received</span>, the sender must send an EOT packet to the receiver. The sender exits, after the receiver has responded with an EOT packet. You can assume that EOT packets are never lost.</p>
+<h4>Receiver Program</h4>
+<p>You must implement two versions (using Go-Back-N and Selective Repeat) of a receiver program. The receiver program takes one argument: the filename to which the transferred file is written. When the receiver program receives the EOT packet, it sends an EOT packet back and exits.</p>
+<h4>Output</h4>
+<p>For both testing and marking purposes, your sender and receiver program must print log messages to standard output - a line for each data packet being sent and received (including duplicates) in the following format. You <b>must</b> follow this format to avoid problems during testing and marking:</p>
+<pre>PKT {SEND|RECV} {DAT|ACK|EOT} &lt;sequence number&gt; &lt;total length&gt;
+</pre>
+<p>For example:</p>
+<pre>PKT SEND DAT 17 512
+PKT RECV ACK 17 12
+</pre>
+<p>Further, before your program executes a potentially blocking system call, it should print a message to standard output, describing the system call being made. The format of this message is not important, but it should <b>not</b> contain the string "PKT". If the program ever hangs, this output can help determine why.</p>
+<h4>Go-Back-N</h4>
+<p>In the Go-Back-N variant, if there's data available for sending, the sender sends data according to the current status of its send window. The send window size must be set to a fixed value of 10 packets. The sender uses a single timer. ACKs are cumulative up to the sequence number in the ACK packet. Follow the description of Go-Back-N as discussed in class.</p>
+<h4>Selective Repeat</h4>
+<p>In the Selective Repeat variant, if there's data available for sending, the sender sends data according to the current status of its send window. The send window size must be set to a fixed value of 10 packets. A separate logical timer must be kept for each packet. ACKs are not cumulative and only acknowledge the sequence number in the ACK packet. Follow the description of Selective Repeat as discussed in class.</p>
+<h4>Channel Emulator</h4>
+<p>The channel emulator is started with the following syntax:</p>
+<ul>
+<li>Linux binary:
+<pre>channel &lt;max delay&gt; &lt;discard probability&gt; &lt;random seed&gt; &lt;verbose&gt;</pre>
+</li>
+<li>Java version:
+<pre>java -jar channel.jar &lt;max delay&gt; &lt;discard probability&gt; &lt;random seed&gt; &lt;verbose&gt;</pre>
+</li>
+</ul>
+<ul>
+<li>All Data and ACK packets are subject to a random delay, uniformly distributed between 0 and <tt>&lt;max delay&gt;</tt> milliseconds.</li>
+<li>All Data and ACK packets are subject to random discard with a probability of <tt>&lt;discard probability&gt;</tt>.</li>
+<li>If <tt>&lt;random seed&gt;</tt> is set to a non-zero value, this seed is being used to initialize the random number generator. Multiple runs with the same seed produce the same channel behaviour. If <tt> &lt;random seed&gt;</tt> is set to zero, the random number generator is seeded with the current system time.</li>
+<li>If <tt>&lt;verbose&gt;</tt> is set to a non-zero value, the channel emulator outputs information about its internal processing.</li>
+</ul>
+<h4><a name="Addressing"></a>Addressing</h4>
+<p>In order to keep addressing simple, but enable running the programs in a shared environment, the following addressing scheme is used with OS-assigned port numbers. The receiver program is started first and must write its 'R' socket address information (hostname and port number) into a file <tt>recvInfo</tt> that is read by the channel emulator. The channel emulator is started next and uses this information to send packets towards the receiver. The same mechanism is used between the sender and the emulator, i.e., the emulator writes its 'B' addressing information into a file <tt>channelInfo</tt> which is then read by the sender. All files are read and written in the current directory. The contents of each file are the IP address (or hostname) and port number, separated by space. Example:</p>
+<pre>ubuntu1204-006.student.cs 38548</pre>
+<h4>Additional Comments/Hints</h4>
+<ol>
+<li>There a many different socket programming tutorials available online. It is recommended to start with a very simple sender/receiver scenario, then expand to include the provided channel and using its packet format, before attempting to implement the actual reliable data transfer protocols.</li>
+<li>A process can obtain the IP address for a DNS name using the <tt>getaddrinfo</tt> system call.</li>
+<li>A process can obtain the address and port of its own socket using the <tt>gethostname</tt> and <tt>getsockname</tt> system calls.</li>
+<li>A receiver process can obtain the address and port of a sending socket using the <tt>recvfrom</tt> system call.</li>
+<li>A process can start an OS-level timer using <tt>ualarm</tt>. For the selective repeat variant, it should not be necessary to start more than one OS-level timer.</li>
+<li>Other interfaces are available and higher-level languages, such as Java or Python, provide corresponding APIs.</li>
+<li>Since UDP is used for data transmission, delivery to and from the channel emulator is not guaranteed. This should not matter for data or ACK packets. You can ignore the residual probability that this could result in a loss of an EOT packet.</li>
+<li>Be aware that the channel emulator only forwards two EOT packets (one in each direction) and then exits!</li>
+</ol>
+<h3>Download</h3>
+<p>The channel program is provided in two versions: The Linux binary is the reference program for the <tt>linux.student.cs</tt> environment. The Java archive is provided for your convenience.</p>
+<ul>
+<li><a href="https://www.student.cs.uwaterloo.ca/~cs456/S15/channel">Linux binary</a></li>
+<li><a href="https://www.student.cs.uwaterloo.ca/~cs456/S15/channel.static">Linux binary (statically linked)</a></li>
+<li><a href="https://www.student.cs.uwaterloo.ca/~cs456/S15/channel.jar">Java archive</a></li>
+</ul>
+<h3>Procedures</h3>
+<h4>What to hand in</h4>
+<ul>
+<li>Hand in source code files, including appropriate comments. All files must be stored in the same directory. There should be no directory hierarchy or package definitions. Your assignment <strong>must</strong> come with a Makefile. The targets in the Makefile must include:
+<ul>
+<li>'clean' to remove all object files, addressing files, as well as all log and temporary files; and</li>
+<li>'all' to build all object and executable files</li>
+</ul>
+</li>
+<li>After executing 'make all', the following executables (or start scripts) must exist in the current directory. The sender programs must accept a timeout in milliseconds and a filename as arguments. The receiver program must accept a filename:
+<p><tt>gbnReceiver &lt;filename&gt;<br /> gbnSender &lt;timeout&gt; &lt;filename&gt;<br /> srReceiver &lt;filename&gt;<br /> srSender &lt;timeout&gt; &lt;filename&gt;</tt></p>
+</li>
+<li>Your code can make use of standard libraries for your programming language, e.g., for containers. However the reliable data transfer protocols must not be taken from third-party code. If in doubt, consult with the instructor. Clearly document what you do.</li>
+<li>'README' file: Indicate which machines your program was built and tested on. This file should also document which parts of the assignment have or have not been completed. The file should contain at most 500 words.</li>
+<li>'a3doc.pdf' file: A pdf document describing the design and testing of your implementation (e.g., design justifications, reasoning behind optimizations). The document must not contain more than five pages, using at least a 10 pt font.</li>
+</ul>
+<h4>Evaluation</h4>
+<p>The assignment is to be done individually. Your program <b>must work</b> in the <tt>linux.student.cs</tt> environment. Your program should not silently crash under any circumstances. At the very least, all fatal errors should lead to an error message indicating the location in the source code before termination. Marks will be assigned as follows:</p>
+<ul>
+<li>Functionality and Correctness: 70%</li>
+<li>Code Quality, Modularity, and Documentation: 30%</li>
+</ul>
+<h4>Submission Instructions</h4>
+<p>After you have completed testing your code, hand it in using the dropbox feature of the Learn environment. Combine all files into a zip/tar/gzip/bzip2 archive with any of the following corresponding names: a3.{zip,tgz,tbz}. Make sure to execute 'make clean' before submitting, and do not include temporary or object files!</p>
+</body>
+</html>
